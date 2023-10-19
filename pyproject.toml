@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "Charts"
+version = "0.1.0"
+description = "App for charting various data."
+authors = ["Neil MacMillan"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+fastapi = "~=0.103.2"
+google-api-python-client = "~=2.102.0"
+google-auth-httplib2 = "~=0.1.1"
+google-auth-oauthlib = "~=1.1.0"
+uvicorn = "~=0.23.2"
+python = ">=3.12,<3.13"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+flake8 = "*"
+pyright = "*"
+types-cachetools = "*"
+
+[build-system]
+requires = ["poetry-core"]

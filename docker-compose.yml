@@ -1,0 +1,22 @@
+version: "2.4"
+
+services:
+    app:
+        build:
+            context: .
+            args:
+                ADDITIONAL_DEP_GROUPS: $ADDITIONAL_DEP_GROUPS
+        container_name: charts-app
+        user: ${USERID}
+        ports:
+            - ${HTTP_PORT}:8000
+        volumes:
+            - ./app:/app
+            - /etc/passwd:/etc/passwd:ro
+            - /etc/group:/etc/group:ro
+            - ${GOOGLE_SHEETS_KEY_PATH}:/sheets-key.json:ro
+        environment:
+            - NBHD_SHEET_ID=${NBHD_SHEET_ID}
+            - NBHD_SOURCE_TAB=${NBHD_SOURCE_TAB}
+            - LOG_LEVEL=${LOG_LEVEL}
+        restart: unless-stopped
