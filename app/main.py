@@ -54,7 +54,7 @@ async def get_neighbourhood_list() -> dict[str, dict[str, set]]:
 
 
 @app.post("/stats/neighbourhood", tags=["Stats"])
-async def get_neighbourhood_stats(request: StatsRequest) -> list[StatsResponse]:
+async def request_neighbourhood_stats(request: StatsRequest) -> list[StatsResponse]:
     """Return stats for the given neighbourhoods."""
     data = get_neighbourhood_data()
     results = {}
@@ -73,6 +73,7 @@ async def get_neighbourhood_stats(request: StatsRequest) -> list[StatsResponse]:
 
 @app.delete("/stats/neighbourhood", tags=["Stats"])
 async def refresh_neighbourhood_cache():
-    "Clear the neighbourhood data cache and retrieve a new copy from the source spreadsheet."
+    """Clear the neighbourhood data cache and retrieve a new copy from the source spreadsheet.  This call
+    will block until the new data have been retrieved."""
     get_neighbourhood_data.cache_clear()
     get_neighbourhood_data()

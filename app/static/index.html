@@ -21,10 +21,10 @@
           <label className="form-check-label" for="numActivityCheckbox">Activities</label>&nbsp;&nbsp;&nbsp;
           <input className="form-check-input" type="radio" value="1" id="numParticipantCheckbox" name="typeRadio" onclick="onStateChange()">&nbsp;
           <label className="form-check-label" for="numParticipantCheckbox">Participants</label>&nbsp;&nbsp;&nbsp;
-          <!-- <div class="text-end">
-            <button type="button" class="btn btn-outline-light me-2">Login</button>
-            <button type="button" class="btn btn-warning">Sign-up</button>
-          </div>-->
+          <div class="position-absolute end-0">
+            <button type="button" class="btn btn-outline-light me-2" title="Copy a link to this chart." id="copyLinkButton" onclick="copyLink()">Copy Link</button>
+            <button type="button" class="btn btn-outline-light me-2" title="Update cached spreadsheet data." id="updateDataButton" onclick="renewData()">Update Data</button>
+          </div>
         </div>
       </div>
     </header>
