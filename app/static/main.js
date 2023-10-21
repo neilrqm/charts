@@ -53,7 +53,16 @@ function initialize() {
         method: "GET"
     }).then((response) => response.json())
       .then((json => buildAreaCheckboxes(json)))
-      .then(() => loadConfig(getCookie('config')))
+      .then(() => {
+        // load state from the 'c' get param if it's set, or if not then from the 'config' cookie.
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('c')) {
+            loadConfig(params.get('c'))
+        }
+        else {
+            loadConfig(getCookie('config'))
+        }
+      })
       .then(() => refreshChart())
 }
 
@@ -115,6 +124,30 @@ function onStateChange() {
     refreshChart()
 }
 
+function copyLink() {
+    button = document.getElementById("copyLinkButton")
+    navigator.clipboard.writeText(uri(`?c=${genConfig()}`))
+    button.disabled = true;
+    button.innerText = "Copied!"
+    new Promise(() => setTimeout(() => {
+        button.innerText = "Copy Link"
+        button.disabled = false
+    }, 1000))
+}
+
+function renewData() {
+    // ask the API to invalidate its data cache and reload data from the source spreadsheet
+    button = document.getElementById("updateDataButton")
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>Loading...'
+    fetch(uri('stats/neighbourhood'), {method: "DELETE"})
+    .then(() => {
+        button.disabled = false
+        button.innerText = "Update Data"
+        refreshChart()
+    })
+}
+
 function refreshChart() {
     // get the stats for the checked neighbourhoods and set the chart data to the result
     fetch(uri('stats/neighbourhood'), {
@@ -128,9 +161,9 @@ function refreshChart() {
           "Content-type": "application/json; charset=UTF-8"
       }
     }).then((response) => response.json())
-      .then((json) => {
+    .then((json) => {
           //console.log(json)
           chart.data.datasets = Array.from(json, (el) => el.dataset)
           chart.update()
-      });
+    });
 }
