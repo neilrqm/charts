@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 
 from datetime import datetime as dt
 from functools import cache
@@ -61,7 +62,8 @@ def compute_neighbourhood_data_point(row: list, activities: set[Activity], type:
         type (StatsType): Indicate whether to sum up numbers of activities or participants.
     Return:
         The sum of activities or participants for the specified activities.  If the sum is 0 then 0 is returned,
-        but if there are no data points for the given activities then None is returned."""
+        but if there are no data points for the given activities then None is returned.
+    """
     cell_values = []
     if Activity.DG in activities:
         cell_values.append(row[4 + type])
@@ -75,6 +77,35 @@ def compute_neighbourhood_data_point(row: list, activities: set[Activity], type:
     if len(values) == 0:
         return None
     return sum(values)
+
+
+@cache
+def get_colour_from_name(name: str, offset: int = 0) -> tuple[str, str]:
+    """Compute a background colour and a border colour from an arbitrary string.
+
+    The colour is derived randomly using the `name` parameter as a seed.  This means that the colour assigned
+    to a given area is random but consistent.  We do this because the default chart.js colour palette is limited.
+    Each RGB channel in the bgColour is assigned a random value between 30 and 200; the borderColour is the same
+    but with +50 added across all 3 channels---in other words, the effective line colours can range from
+    rgb(80, 80, 80) to rgb(250, 250, 250).  An additional offset can be specified, e.g. to generate a line that
+    matches a given area's hue but is brighter or darker than the default.  The PRNG is re-seeded with the current
+    time after the colour is generated.
+
+    Args:
+        name (str): A cluster or neighbourhood name (or any string) used to seed the generation of a colour.
+        offset (int): Apply an exra offset to both background and border colours.
+
+    Return:
+        A tuple containing string representations of two colours, (bgColour, borderColour).  These are meant
+        to configure dataset colours returned to the Chart.js app.  The border colour is the line colour.
+        The background colour is the dot/fill colour, and is slightly darker than the border colour.
+    """
+    # This is a little silly and might need some tweaking to get good colours.  There's also plugins for chart.js
+    # that expand its default colour palette---might be worth exploring if this doesn't work out.
+    random.seed(name)
+    [r, g, b] = [random.randrange(30, 200) + offset for _ in range(0, 3)]
+    random.seed()
+    return (f"rgb({r}, {g}, {b})", f"rgb({r+50}, {g+50}, {b+50})")
 
 
 @cache

@@ -35,6 +35,8 @@ class Dataset(BaseModel):
         description="List of data points formatted suitably for charting with chart.js, "
         "i.e. [{'x': datestamp, 'y': data_point}, ...]"
     )
+    backgroundColor: str = Field(description="String representation of the background colour to use for this dataset.")
+    borderColor: str = Field(description="String representation of the border/line colour to use for this dataset.")
 
 
 class StatsResponse(BaseModel):
