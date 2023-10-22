@@ -54,13 +54,25 @@ function initialize() {
     }).then((response) => response.json())
       .then((json => buildAreaCheckboxes(json)))
       .then(() => {
-        // load state from the 'c' get param if it's set, or if not then from the 'config' cookie.
+        // try to load the config state
         const params = new URLSearchParams(window.location.search);
         if (params.has('c')) {
+            // config was passed in as a GET param
             loadConfig(params.get('c'))
         }
         else {
-            loadConfig(getCookie('config'))
+            let c = getCookie("config")
+            if (c) {
+                // config was present as a cookie
+                loadConfig(getCookie('config'))
+            }
+            else
+            {
+                // load a default config if there's no cookie or GET param
+                document.getElementsByName("activityCheckbox").forEach((el) => el.checked = true)
+                document.getElementById("numActivityCheckbox").checked = true
+                document.getElementById("area9Checkbox").checked = true
+            }
         }
       })
       .then(() => refreshChart())
@@ -70,6 +82,7 @@ function buildAreaCheckboxes(json) {
     var i = 0;
     areaList = document.getElementById('areaList')
     Object.entries(json).sort().forEach(([clusterGroup, clusterMap]) => {
+        // todo: do something with cluster group
         Object.entries(clusterMap).sort().forEach(([cluster, nbhds]) => {
             nbhds.sort().forEach((nbhd) => {
                 let div = document.createElement('div')
@@ -88,7 +101,7 @@ function buildAreaCheckboxes(json) {
                 div.appendChild(input)
                 div.appendChild(label)
                 areaList.appendChild(div)
-                i++  // there's something wrong here, the ids and labels are wrong.
+                i++
             })
         })
 
@@ -136,7 +149,8 @@ function copyLink() {
 }
 
 function renewData() {
-    // ask the API to invalidate its data cache and reload data from the source spreadsheet
+    // ask the API to invalidate its data cache and reload data from the source spreadsheet.  This disables
+    // the update button and runs a spinner until the API replies (which can take several seconds)
     button = document.getElementById("updateDataButton")
     button.disabled = true;
     button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>Loading...'
@@ -162,7 +176,6 @@ function refreshChart() {
       }
     }).then((response) => response.json())
     .then((json) => {
-          //console.log(json)
           chart.data.datasets = Array.from(json, (el) => el.dataset)
           chart.update()
     });

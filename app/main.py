@@ -7,7 +7,11 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from data import get_neighbourhood_data, compute_neighbourhood_data_point
+from data import (
+    get_neighbourhood_data,
+    compute_neighbourhood_data_point,
+    get_colour_from_name,
+)
 from model import StatsRequest, StatsResponse, Dataset
 
 description = """Provides statistical data for charting"""
@@ -63,10 +67,19 @@ async def request_neighbourhood_stats(request: StatsRequest) -> list[StatsRespon
             # ignore neighbourhoods that weren't requested
             continue
         if row[2] not in results:
-            dataset = Dataset(label=row[2], data=[])
+            colours = get_colour_from_name(row[2])
+            dataset = Dataset(
+                label=row[2],
+                data=[],
+                backgroundColor=colours[0],
+                borderColor=colours[1],
+            )
             results[row[2]] = StatsResponse(name=row[2], goal=0, dataset=dataset)
         results[row[2]].dataset.data.append(
-            {"x": row[3], "y": compute_neighbourhood_data_point(row, request.activities, request.stats_type)}
+            {
+                "x": row[3],
+                "y": compute_neighbourhood_data_point(row, request.activities, request.stats_type),
+            }
         )
     return list(results.values())
 
