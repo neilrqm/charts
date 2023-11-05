@@ -12,7 +12,7 @@ from googleapiclient.discovery import build
 
 logger = logging.getLogger("uvicorn.error")
 
-cluster_groups = {
+nbhd_cluster_groups = {
     "Abbotsford-Mission": "LM East",
     "Caribou North": "Interior North",
     "Central Interior": "Interior North",
@@ -33,9 +33,73 @@ cluster_groups = {
     "West Shore": "Island South",
 }
 
+cluster_groups = {
+    "BC01 - Sooke": "Island South",
+    "BC02 - West Shore": "Island South",
+    "BC03 - Southeast Victoria": "Island South",
+    "BC04 - Saanich Peninsula": "Island South",
+    "BC05 - Gulf Islands": "Island South",
+    "BC06 - Cowichan Valley": "Island North",
+    "BC07 - Mid-Island": "Island North",
+    "BC08 - Pacific Rim Oceanside": "Island North",
+    "BC10 - Comox Valley": "Island North",
+    "BC11 - Strathcona": "Island North",
+    "BC12 - North Island": "Island North",
+    "BC13 - Vancouver": "LM West",
+    "BC15 - North Shore": "LM West",
+    "BC16 - Squamish-Pemberton": "LM West",
+    "BC17 - Sunshine Coast": "LM West",
+    "BC14 - Surrey-Delta-White Rock": "LM East",
+    "BC18 - Langley": "LM East",
+    "BC19 - Tri-Cities": "LM East",
+    "BC20 - Golden Ears": "LM East",
+    "BC21 - Abbotsford Mission": "LM East",
+    "BC22 - Hope Chilliwack": "LM East",
+    "BC23 - South Okanagan": "Interior South",
+    "BC24 - Central Okanagan": "Interior South",
+    "BC25 - North Okanagan": "Interior South",
+    "BC26 - Lower Thompson-Nicola": "Interior South",
+    "BC27 - Upper Thompson-Nicola": "Interior South",
+    "BC28 - Columbia-Shuswap": "Interior South",
+    "BC29 - Upper Columbia": "Interior South",
+    "BC30 - East Kootenay": "Interior South",
+    "BC31 - West Kootenay": "Interior South",
+    "BC32 - Boundary": "Interior South",
+    "BC33 - Chilcotin-Cariboo": "Interior North",
+    "BC34 - Cariboo North": "Interior North",
+    "BC35 - Central Interior": "Interior North",
+    "BC36 - Northern Rockies": "Interior North",
+    "BC37 - Kitimat Stikine": "Interior North",
+    "BC38 - Bulkely Nechako": "Interior North",
+    "BC39 - North Coast": "Interior North",
+    "BC40 - Central Coast": "Interior North",
+    "BC41 - Haida Gwaii": "Interior North",
+}
+
+# This object maps tab names in the cluster spreadsheet to column indexes representing the start of the table 2 data.
+# For example, the value at index 46 corresponds to column AU in the spreadsheet, which represents the start of
+# table 2.  So in that table, data[46] is nDG, data[47] is pDG, data[49] is nCC, data[50] is pCC, ..., where
+# nDG is number of devotionals and pDG is participants in devotionals and so on.  In this case data[48] would be
+# friends of the Faith participating in devotionals, which we are not using.
+cluster_source_tabs = {
+    "Oct 2023": 46,  # column AU
+    "May 2023": 44,  # column AS
+    "Jan 2023": 44,
+    "Sep 2022": 44,
+    "Apr 2022": 44,
+    "Feb 2022": 44,
+    "Jan 2022": 44,
+    "Oct 2021": 44,
+    "Apr 2021": 44,
+    "Dec 2020": 44,
+    "Aug 2020": 25,  # column Z
+    "Apr 2020": 25,
+    "Jan 2020": 25,
+}
+
 
 def _get_data(sheet_id: str, source_tab: str, range: str = "A1:ZZ") -> list[list[str]]:
-    """Retrieve data from the source table.
+    """Retrieve data from a source spreadsheet.
 
     Args:
         sheet_id (str): The spreadsheet document ID (taken from the URL).
@@ -52,9 +116,9 @@ def _get_data(sheet_id: str, source_tab: str, range: str = "A1:ZZ") -> list[list
     return sheet.values().get(spreadsheetId=sheet_id, range=f"'{source_tab}'!{range}").execute()["values"]
 
 
-def compute_neighbourhood_data_point(row: list, activities: set[Activity], type: StatsType) -> int | None:
-    """Compute a data point for a neighbourhood based on a CGP-style table row as returned by
-    get_neighbourhood_data.
+def compute_data_point(row: list, activities: set[Activity], type: StatsType) -> int | None:
+    """Compute a data point for an area based on a CGP-style table row as returned by
+    get_neighbourhood_data and get_cluster_data.
 
     Args:
         row (list): a row from the table returned by get_neighbourhood_data.
@@ -73,7 +137,7 @@ def compute_neighbourhood_data_point(row: list, activities: set[Activity], type:
         cell_values.append(row[8 + type])
     if Activity.SC in activities:
         cell_values.append(row[10 + type])
-    values = [int(x) for x in cell_values if x != ""]
+    values = [int(x.replace(",", "")) for x in cell_values if x != ""]
     if len(values) == 0:
         return None
     return sum(values)
@@ -106,6 +170,55 @@ def get_colour_from_name(name: str, offset: int = 0) -> tuple[str, str]:
     [r, g, b] = [random.randrange(30, 200) + offset for _ in range(0, 3)]
     random.seed()
     return (f"rgb({r}, {g}, {b})", f"rgb({r+50}, {g+50}, {b+50})")
+
+
+@cache
+def get_cluster_data() -> list[list[str]]:
+    """Retrieve cluster statistical data from the source spreadsheet and reformat it to look more like the output
+    of `get_neighbourhood_data`.  Data rows with no activities are excluded, and empty cells have a value of "".
+    While the spreadsheets indicate dates (presumably corresponding to )
+
+    Return:
+        The reformatted data table.  Table headers look like this:
+
+            Cluster Group, Cluster, Nbhd, Date, nDG, pDG, nCC, pCC, nJY, pJY, nSC, pSC
+
+        (nDG is number of devotionals, pDG is devotional participants, etc.  Nbhd is always blank.)
+    """
+    logger.info("Retrieving fresh cluster data.")
+    sheet_id = os.environ.get("CLUSTER_SHEET_ID")
+    if sheet_id is None:
+        logger.error("CLUSTER_SHEET_ID is empty, the env variables must be set.")
+        return []
+    new_rows = []
+    for tab_name in cluster_source_tabs:
+        tokens = tab_name.split()
+        date = f"1 {tokens[0][0:3]} {tokens[1]}"
+        date = dt.strptime(date, "%d %b %Y").isoformat().split("T")[0]
+        start_column = cluster_source_tabs[tab_name]
+        data = _get_data(sheet_id, tab_name)
+        for row in data[3:]:
+            if len(row) < start_column or not row[1].startswith("BC"):
+                # this row doesn't hold cluster data
+                continue
+            # some older tables have "R" included in the cluster names to indicate a reservoir cluster--remove it.
+            cluster = row[1].replace('"R"', "").strip()
+            if cluster not in cluster_groups:
+                logger.error(f"Cluster '{cluster}' listed in tab `{tab_name}` was not in the list of known clusters.")
+                continue
+            cluster_group = cluster_groups[cluster]
+            new_row = [cluster_group, cluster, "", date]  # third entry is nbhd, which we ignore in this view.
+            for i in range(0, 11, 3):
+                # Assumes the source data is structured like table 2 from the CGP.  Each core activity has three
+                # columns, starting at `start_column` which is specified on a tab-by-tab basis above.  For each core
+                # activity, we extract the first two of its columns (number of the activity and number of participants)
+                # into the new row.
+                new_row.append(row[start_column + i])
+                new_row.append(row[start_column + i + 1])
+            if "".join(new_row[4:]):
+                # only add the row if there's at least one data point
+                new_rows.append(new_row)
+    return new_rows
 
 
 @cache
@@ -150,11 +263,11 @@ def get_neighbourhood_data() -> list[list]:
         for date in dates:
             cluster = row[0].strip()
             nbhd = row[1].strip()
-            if cluster not in cluster_groups:
+            if cluster not in nbhd_cluster_groups:
                 logger.error(f"Cluster {cluster} is not in the mapping of clusters to cluster groups.")
                 group = ""
             else:
-                group = cluster_groups[cluster]
+                group = nbhd_cluster_groups[cluster]
             new_row = [group, cluster, nbhd]
             new_row.append(date)
             for i in range(0, 4):

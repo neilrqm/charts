@@ -8,37 +8,41 @@
     <header class="p-3 bg-dark text-white">
       <div class="container">
         <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
-          <input className="form-check-input" type="checkbox" value="dg" id="dgCheckbox" name="activityCheckbox" onclick="onStateChange()">&nbsp;
-          <label className="form-check-label" for="dgCheckbox">DG</label>&nbsp;&nbsp;&nbsp;
-          <input className="form-check-input" type="checkbox" value="cc" id="ccCheckbox" name="activityCheckbox" onclick="onStateChange()">&nbsp;
-          <label className="form-check-label" for="ccCheckbox">CC</label>&nbsp;&nbsp;&nbsp;
-          <input className="form-check-input" type="checkbox" value="jy" id="jyCheckbox" name="activityCheckbox" onclick="onStateChange()">&nbsp;
-          <label className="form-check-label" for="jyCheckbox">JY</label>&nbsp;&nbsp;&nbsp;
-          <input className="form-check-input" type="checkbox" value="sc" id="scCheckbox" name="activityCheckbox" onclick="onStateChange()">&nbsp;
-          <label className="form-check-label" for="scCheckbox">SC</label>
+          <input className="form-check-input" type="radio" value="Cluster" id="clusterCheckbox" name="scopeRadio">&nbsp;
+          <label className="form-check-label" for="clusterCheckbox">Clusters</label>&nbsp;&nbsp;&nbsp;
+          <input className="form-check-input" type="radio" value="Neighbourhood" id="neighbourhoodCheckbox" name="scopeRadio">&nbsp;
+          <label className="form-check-label" for="neighbourhoodCheckbox">Neighbourhoods</label>&nbsp;&nbsp;&nbsp;
           &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-          <input className="form-check-input" type="radio" value="0" id="numActivityCheckbox" name="typeRadio" onclick="onStateChange()">&nbsp;
+          <input className="form-check-input" type="radio" value="0" id="numActivityCheckbox" name="typeRadio">&nbsp;
           <label className="form-check-label" for="numActivityCheckbox">Activities</label>&nbsp;&nbsp;&nbsp;
-          <input className="form-check-input" type="radio" value="1" id="numParticipantCheckbox" name="typeRadio" onclick="onStateChange()">&nbsp;
+          <input className="form-check-input" type="radio" value="1" id="numParticipantCheckbox" name="typeRadio">&nbsp;
           <label className="form-check-label" for="numParticipantCheckbox">Participants</label>&nbsp;&nbsp;&nbsp;
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+          <input className="form-check-input" type="checkbox" value="dg" id="dgCheckbox" name="activityCheckbox">&nbsp;
+          <label className="form-check-label" for="dgCheckbox">DG</label>&nbsp;&nbsp;&nbsp;
+          <input className="form-check-input" type="checkbox" value="cc" id="ccCheckbox" name="activityCheckbox">&nbsp;
+          <label className="form-check-label" for="ccCheckbox">CC</label>&nbsp;&nbsp;&nbsp;
+          <input className="form-check-input" type="checkbox" value="jy" id="jyCheckbox" name="activityCheckbox">&nbsp;
+          <label className="form-check-label" for="jyCheckbox">JY</label>&nbsp;&nbsp;&nbsp;
+          <input className="form-check-input" type="checkbox" value="sc" id="scCheckbox" name="activityCheckbox">&nbsp;
+          <label className="form-check-label" for="scCheckbox">SC</label>
           <div class="position-absolute end-0">
             <button type="button" class="btn btn-outline-light me-2" title="Copy a link to this chart." id="copyLinkButton" onclick="copyLink()">Copy Link</button>
-            <button type="button" class="btn btn-outline-light me-2" title="Update cached spreadsheet data." id="updateDataButton" onclick="renewData()">Update Data</button>
+            <button type="button" class="btn btn-outline-light me-2" title="Update cached spreadsheet data." id="updateDataButton">Update Data</button>
           </div>
         </div>
       </div>
     </header>
     <main class="d-flex flex-nowrap">
       <div class="flex-shrink-0 p-3" style="width: 20%;" id='areaList'>
-        <a href="/" class="d-flex align-items-center pb-3 mb-3 link-body-emphasis text-decoration-none border-bottom">
-          <span class="fs-5 fw-semibold" id="areaTitle">Neighbourhoods</span>
-        </a>
+          <span class="fs-5 d-flex pb-3 mb-3 fw-semibold border-bottom" id="areaTitle">Neighbourhoods</span>
       </div>
     
       <div class="d-flex flex-column align-items-stretch flex-shrink-0 bg-body-tertiary" style="width: 80%;">
         <canvas id="statsCanvas"></canvas></div>
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.js" integrity="sha512-6HrPqAvK+lZElIZ4mZ64fyxIBTsaX5zAFZg2V/2WT+iKPrFzTzvx6QAsLW2OaLwobhMYBog/+bvmIEEGXi0p1w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="static/main.js"></script>
   </body>
 </html>

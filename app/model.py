@@ -18,12 +18,13 @@ class StatsType(int, Enum):
 
 
 class StatsScope(str, Enum):
-    CLUSTER = "cluster"
-    NEIGHBOURHOOD = "neighbourhod"
+    CLUSTER = "Cluster"
+    NEIGHBOURHOOD = "Neighbourhood"
 
 
 class StatsRequest(BaseModel):
     names: List = Field(description="List of clusters/neighbourhoods to get stats for.")
+    scope: StatsScope = Field(description="Request stats for 'Cluster's or 'Neighbourhood's")
     activities: Set[Activity] = Field(description="List of activity types to include in response.")
     stats_type: StatsType = Field(description="Type of statistics to query (number of activities or participants).")
     start_date: dt = Field(description="Query records later than this date.", default=dt.min)
