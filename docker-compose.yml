@@ -18,5 +18,6 @@ services:
         environment:
             - NBHD_SHEET_ID=${NBHD_SHEET_ID}
             - NBHD_SOURCE_TAB=${NBHD_SOURCE_TAB}
+            - CLUSTER_SHEET_ID=${CLUSTER_SHEET_ID}
             - LOG_LEVEL=${LOG_LEVEL}
         restart: unless-stopped
