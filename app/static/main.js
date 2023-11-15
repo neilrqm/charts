@@ -14,7 +14,7 @@ var chart = new Chart(document.getElementById('statsCanvas'), {
     }
 });
 
-initialize();
+initialize()
 document.getElementById("clusterCheckbox").onclick = async () => await onScopeChange()
 document.getElementById("neighbourhoodCheckbox").onclick = async () => await onScopeChange()
 document.getElementById("updateDataButton").onclick = async () => await renewData()
@@ -94,6 +94,7 @@ function findConfig() {
         document.getElementsByName("activityCheckbox").forEach((el) => el.checked = true)
         document.getElementById("numActivityCheckbox").checked = true
         document.getElementById("clusterCheckbox").checked = true
+        setCookie("config", genConfig())
         return genConfig()
     }
 }
@@ -120,6 +121,7 @@ function findAreaConfig() {
         }
         // load a default config if there's no cookie or GET param
         document.getElementById("area9Checkbox").checked = true
+        setCookie("clusterAreas", genAreaConfig())  // assumes the scope got set to the default config (cluster)
         return genAreaConfig()
     }
 }
@@ -127,6 +129,7 @@ function findAreaConfig() {
 async function initialize() {
     // query the API for a mapping of clusters to neighbourhoods, and then build checkbox selectors
     // for each neighbourhood, load config data, and generate the initial chart
+    updateTheme()
     loadConfig(findConfig())
     if (document.getElementById("clusterCheckbox").checked) {
         await buildAreaCheckboxes('cluster')
@@ -140,6 +143,47 @@ async function initialize() {
     
     await loadAreaConfig(findAreaConfig())
     await refreshChart()
+}
+
+async function updateTheme() {
+    // Update the theme based on the value of a cookie (or set to dark theme if cookie is not set)
+    // This will set the 'data-bs-theme' attribute on the <html> tag, which will update most of the UI
+    // accordingly.  Then it sets the button themes to the opposite of the page's theme so that the
+    // buttons show up.  Finally it updates the toggle theme button with a new click event handler
+    // and icon.
+    htmlTag = document.getElementsByTagName("html")[0]
+    theme = getCookie("theme")
+    if (!theme) {
+        setCookie("theme", "dark")
+        theme = "dark"
+    }
+    not_theme = theme == "dark" ? "light" : "dark"
+
+    themeButton = document.getElementById('themeButton')
+    copyLinkButton = document.getElementById('copyLinkButton')
+    updateDataButton = document.getElementById('updateDataButton')
+    htmlTag.setAttribute('data-bs-theme', theme)
+    ;[themeButton, copyLinkButton, updateDataButton].forEach((btn) => {
+        btn.classList.remove(`btn-outline-${theme}`)
+        btn.classList.add(`btn-outline-${not_theme}`)
+    })
+    themeButton.onclick = async () => {
+        setCookie("theme", not_theme)
+        await updateTheme()
+    }
+    if (theme == 'light') {
+        themeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lightbulb-fill" viewBox="0 0 16 16">
+            <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13h-5a.5.5 0 0 1-.46-.302l-.761-1.77a1.964 1.964 0 0 0-.453-.618A5.984 5.984 0 0 1 2 6zm3 8.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1-.5-.5z"/>
+            </svg>`
+    }
+    else if (theme == 'dark') {
+        themeButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-lightbulb" viewBox="0 0 16 16">
+            <path d="M2 6a6 6 0 1 1 10.174 4.31c-.203.196-.359.4-.453.619l-.762 1.769A.5.5 0 0 1 10.5 13a.5.5 0 0 1 0 1 .5.5 0 0 1 0 1l-.224.447a1 1 0 0 1-.894.553H6.618a1 1 0 0 1-.894-.553L5.5 15a.5.5 0 0 1 0-1 .5.5 0 0 1 0-1 .5.5 0 0 1-.46-.302l-.761-1.77a1.964 1.964 0 0 0-.453-.618A5.984 5.984 0 0 1 2 6zm6-5a5 5 0 0 0-3.479 8.592c.263.254.514.564.676.941L5.83 12h4.342l.632-1.467c.162-.377.413-.687.676-.941A5 5 0 0 0 8 1z"/>
+            </svg>`
+    }
+    else {
+        console.error(`Invalid theme specified: '${theme}'.`)
+    }
 }
 
 function appendAreaCheckbox(areaList, i, value, text) {
@@ -205,11 +249,11 @@ async function buildAreaCheckboxes(area_type) {
       })
 }
 
-function setCookie(cname, cvalue, exdays) {
+function setCookie(cname, cvalue) {
     // from https://www.w3schools.com/js/js_cookies.asp
-    // cname is cookie name, cvalue is cookie value, exdays is expiry time in days from now.
+    // cname is cookie name, cvalue is cookie value
     const d = new Date();
-    d.setTime(d.getTime() + (exdays*24*60*60*1000));
+    d.setTime(d.getTime() + 31536000000);  // expire in 365 days
     let expires = "expires="+ d.toUTCString();
     document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
 }
@@ -232,35 +276,45 @@ async function onAreaChange() {
     // event handler for when an area selection checkbox is checked or unchecked.  Updates cookies and refreshes
     // the chart.
     if (document.getElementById("clusterCheckbox").checked) {
-        setCookie("clusterAreas", genAreaConfig(), 365)
+        setCookie("clusterAreas", genAreaConfig())
     }
     else if (document.getElementById("neighbourhoodCheckbox").checked) {
-        setCookie("nbhdAreas", genAreaConfig(), 365)
+        setCookie("nbhdAreas", genAreaConfig())
     }
     await refreshChart()
 }
 
 async function onConfigChange() {
     // event handler for when a config value changes.  Updates config cookie and refreshes the chart.
-    setCookie('config', genConfig(), 365)
+    setCookie('config', genConfig())
     await refreshChart()
 }
 
 async function onScopeChange() {
     // event handler for when the scope setting changes.  Rebuilds the area selection list and then triggers the
     // onConfigChange handler.
+    let areas
     if (document.getElementById("clusterCheckbox").checked) {
         await buildAreaCheckboxes('cluster')
-        await loadAreaConfig(getCookie("clusterAreas"))
+        areas = getCookie("clusterAreas")
     }
     else if (document.getElementById("neighbourhoodCheckbox").checked) {
         await buildAreaCheckboxes('neighbourhood')
-        await loadAreaConfig(getCookie("nbhdAreas"))
+        areas = getCookie("nbhdAreas")
+    }
+    if (areas) {
+        await loadAreaConfig(areas)
+    }
+    else {
+        // if there isn't an area config set then just set something so that the chart has a line.
+        await loadAreaConfig("256")
     }
     await onConfigChange();
 }
 
 function copyLink() {
+    // generate a link that will reproduce the current configuration and write it to the clipboard.
+    // also changes the "copy link" button text for 1 second to indicate the the link was copied.
     button = document.getElementById("copyLinkButton")
     navigator.clipboard.writeText(uri(`?c=${genConfig()}&a=${genAreaConfig()}`))
     button.disabled = true;
