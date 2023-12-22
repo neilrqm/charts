@@ -3,14 +3,21 @@ import os
 import random
 
 from datetime import datetime as dt
+from datetime import timezone as tz
 from functools import cache
-from model import Activity, StatsType
+from model import Activity, SourceInfo, StatsScope, StatsType
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 
 logger = logging.getLogger("uvicorn.error")
+
+cluster_sheet_id = os.environ.get("CLUSTER_SHEET_ID")
+nbhd_sheet_id = os.environ.get("NBHD_SHEET_ID")
+nbhd_source_tab = os.environ.get("NBHD_SOURCE_TAB")
+last_cluster_data_dt = dt.min
+last_nbhd_data_dt = dt.min
 
 nbhd_cluster_groups = {
     "Abbotsford-Mission": "LM East",
@@ -144,6 +151,24 @@ def compute_data_point(row: list, activities: set[Activity], type: StatsType) ->
 
 
 @cache
+def get_source_info(scope: StatsScope) -> SourceInfo:
+    """Get the title, URL, and last update timestamp of the spreadsheet used as a data source for the given scope.
+
+    The cache for this function needs to be cleared any time the source data get updated."""
+    global last_cluster_data_dt, last_nbhd_data_dt
+    sheet_id = cluster_sheet_id if scope == StatsScope.CLUSTER else nbhd_sheet_id
+    scopes: list = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = service_account.Credentials.from_service_account_file("/sheets-key.json", scopes=scopes)
+    service = build("sheets", "v4", credentials=creds)
+    sheet = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+    title = sheet.get("properties").get("title")
+    url = sheet.get("spreadsheetUrl")
+    last_pulled_dt = last_cluster_data_dt if scope == StatsScope.CLUSTER else last_nbhd_data_dt
+    logger.info(last_pulled_dt)
+    return SourceInfo(title=title, url=url, last_pulled=last_pulled_dt)
+
+
+@cache
 def get_colour_from_name(name: str, offset: int = 0) -> tuple[str, str]:
     """Compute a background colour and a border colour from an arbitrary string.
 
@@ -185,9 +210,11 @@ def get_cluster_data() -> list[list[str]]:
 
         (nDG is number of devotionals, pDG is devotional participants, etc.  Nbhd is always blank.)
     """
+    global last_cluster_data_dt
     logger.info("Retrieving fresh cluster data.")
-    sheet_id = os.environ.get("CLUSTER_SHEET_ID")
-    if sheet_id is None:
+    last_cluster_data_dt = dt.now(tz=tz.utc)
+    get_source_info.cache_clear()
+    if cluster_sheet_id is None:
         logger.error("CLUSTER_SHEET_ID is empty, the env variables must be set.")
         return []
     new_rows = []
@@ -196,7 +223,7 @@ def get_cluster_data() -> list[list[str]]:
         date = f"1 {tokens[0][0:3]} {tokens[1]}"
         date = dt.strptime(date, "%d %b %Y").isoformat().split("T")[0]
         start_column = cluster_source_tabs[tab_name]
-        data = _get_data(sheet_id, tab_name)
+        data = _get_data(cluster_sheet_id, tab_name)
         for row in data[3:]:
             if len(row) < start_column or not row[1].startswith("BC"):
                 # this row doesn't hold cluster data
@@ -234,12 +261,13 @@ def get_neighbourhood_data() -> list[list]:
         (nDG is number of devotionals, pDG is devotional participants, etc.)
     """
     logger.info("Retrieving fresh neighbourhood data.")
-    sheet_id = os.environ.get("NBHD_SHEET_ID")
-    source_tab = os.environ.get("NBHD_SOURCE_TAB")
-    if sheet_id is None or source_tab is None:
+    global last_nbhd_data_dt
+    last_nbhd_data_dt = dt.now(tz=tz.utc)
+    get_source_info.cache_clear()
+    if nbhd_sheet_id is None or nbhd_source_tab is None:
         logger.error("NBHD_SHEET_ID and/or NBHD_SOURCE_TAB is empty, both env variables must be set.")
         return []
-    data = _get_data(sheet_id, source_tab)
+    data = _get_data(nbhd_sheet_id, nbhd_source_tab)
     # pull dates out of the sheet and reformat to ISO format e.g. "Jan     2019" to "2019-01-01"
     dates = {}
     for i in range(0, len(data[2])):

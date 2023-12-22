@@ -13,8 +13,9 @@ from data import (
     get_cluster_data,
     get_colour_from_name,
     get_neighbourhood_data,
+    get_source_info,
 )
-from model import Dataset, StatsRequest, StatsResponse, StatsScope
+from model import Dataset, SourceInfo, StatsRequest, StatsResponse, StatsScope, StatsData
 
 description = """Provides statistical data for charting"""
 
@@ -77,8 +78,8 @@ async def get_cluster_list() -> dict[str, set]:
 
 
 @app.post("/stats", tags=["Stats"])
-async def request_stats(request: StatsRequest) -> list[StatsResponse]:
-    """Return stats for the areas specified in the request object."""
+async def request_stats(request: StatsRequest) -> StatsResponse:
+    """Return stats and source spreadsheet info for the areas specified in the request object."""
     if request.scope == StatsScope.NEIGHBOURHOOD:
         data = get_neighbourhood_data()
     elif request.scope == StatsScope.CLUSTER:
@@ -99,14 +100,14 @@ async def request_stats(request: StatsRequest) -> list[StatsResponse]:
                 backgroundColor=colours[0],
                 borderColor=colours[1],
             )
-            results[name] = StatsResponse(name=name, goal=0, dataset=dataset)
+            results[name] = StatsData(name=name, goal=0, dataset=dataset)
         results[name].dataset.data.append(
             {
                 "x": row[3],
                 "y": compute_data_point(row, request.activities, request.stats_type),
             }
         )
-    return list(results.values())
+    return StatsResponse(source=get_source_info(request.scope), data=list(results.values()))
 
 
 @app.delete("/stats", tags=["Stats"])

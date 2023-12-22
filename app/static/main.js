@@ -365,7 +365,11 @@ async function refreshChart() {
       }
     }).then((response) => response.json())
     .then((json) => {
-          chart.data.datasets = Array.from(json, (el) => el.dataset)
+          let sourceText = document.getElementById("sourceText")
+          let last_pulled = new Date(json.source.last_pulled)
+          // last_pulled.
+          sourceText.innerHTML = `Data retrieved from <a href="${json.source.url}" target="_blank">${json.source.title}</a> on ${last_pulled.toLocaleDateString()} at ${last_pulled.toLocaleTimeString()}.`
+          chart.data.datasets = Array.from(json.data, (el) => el.dataset)
           chart.update()
     });
 }
