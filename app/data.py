@@ -164,7 +164,6 @@ def get_source_info(scope: StatsScope) -> SourceInfo:
     title = sheet.get("properties").get("title")
     url = sheet.get("spreadsheetUrl")
     last_pulled_dt = last_cluster_data_dt if scope == StatsScope.CLUSTER else last_nbhd_data_dt
-    logger.info(last_pulled_dt)
     return SourceInfo(title=title, url=url, last_pulled=last_pulled_dt)
 
 
@@ -268,6 +267,7 @@ def get_neighbourhood_data() -> list[list]:
         logger.error("NBHD_SHEET_ID and/or NBHD_SOURCE_TAB is empty, both env variables must be set.")
         return []
     data = _get_data(nbhd_sheet_id, nbhd_source_tab)
+
     # pull dates out of the sheet and reformat to ISO format e.g. "Jan     2019" to "2019-01-01"
     dates = {}
     for i in range(0, len(data[2])):
