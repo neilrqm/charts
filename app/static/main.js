@@ -222,14 +222,29 @@ async function buildAreaCheckboxes(area_type) {
         areaTitle = document.getElementById('areaTitle')
         areaList.innerHTML = ""
         areaList.appendChild(areaTitle)
+        listRoot = document.createElement('ul')
+        listRoot.style = "list-style-type: none"
+        areaList.appendChild(listRoot)
+        var groupId = 0;
+        var i = 0
         Object.entries(json).sort().forEach(([clusterGroup, clusterData]) => {
+            var groupRoot = document.createElement('li')
+            listRoot.appendChild(groupRoot)
+            groupRoot.insertAdjacentHTML('beforeend', `<input type="checkbox" class="form-check-input" id="group${groupId}">`)
+            groupRoot.insertAdjacentHTML('beforeend', `<label class="form-check-label" for="group${groupId}">&nbsp;${clusterGroup}</label>`)
+            var groupList = document.createElement('ul')
+            groupRoot.appendChild(groupList)
             // todo: do something with cluster group
             if (area_type == "neighbourhood") {
                 areaTitle.innerText = "Neighbourhoods"
+                var areaId = 0
                 // clusterData is a mapping of cluster name to a sequence of neighbourhoods
                 Object.entries(clusterData).sort().forEach(([cluster, nbhds]) => {
                     nbhds.sort().forEach((nbhd) => {
-                        appendAreaCheckbox(areaList, i, nbhd, `${nbhd} (${cluster})`)
+                        //groupList.insertAdjacentHTML('beforeend', `<li><input type="checkbox" class="form-check-input" id="group${groupId}area${areaId}"><label class="form-check-label" for="group${groupId}area${areaId}"> ${nbhd} (${cluster})</label></li>`)
+                        groupList.insertAdjacentHTML('beforeend', `<li class="list-group-item"><input type="checkbox" class="form-check-input" id="area${i}Checkbox" name="areaCheckbox" value="${nbhd}><label class="form-check-label" for="group${groupId}area${areaId}"> ${nbhd} (${cluster})</label></li>`)
+                        areaId++;
+                        //appendAreaCheckbox(areaList, i, nbhd, `${nbhd} (${cluster})`)
                         i++
                     })
                 })
