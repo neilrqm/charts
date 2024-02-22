@@ -9,6 +9,9 @@ var chart = new Chart(document.getElementById('statsCanvas'), {
         scales: {
             x: {
                 type: 'time',
+            },
+            y: {
+                beginAtZero: true,
             }
         }
     }
@@ -126,11 +129,41 @@ function findAreaConfig() {
     }
 }
 
+function connectLive(sid) {
+    if (location.protocol === "https:") {
+        window.sock = new WebSocket(`wss://${location.host}/live`);
+    }
+    else {
+        window.sock = new WebSocket(`ws://${location.host}/live`);
+    }
+
+    window.sock.addEventListener("error", (event) => {
+        console.log("WebSocket error: ", event);
+    });
+
+    window.sock.onmessage = function (event) {
+        console.log(`Received ${JSON.parse(event.data)}`)
+        console.log(`Received ${event.data}`)
+    }
+
+    window.sock.onopen = function(event) {
+        window.sock.send(JSON.stringify({"sid": sid, "conf": 0, "area": 0}))
+    }
+}
+
 async function initialize() {
     // query the API for a mapping of clusters to neighbourhoods, and then build checkbox selectors
     // for each neighbourhood, load config data, and generate the initial chart
     updateTheme()
-    loadConfig(findConfig())
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("live")) {
+        // connect to a live session to get config updates
+        connectLive(params.get("live"))
+    }
+    //else {
+        // look for local config settings
+        loadConfig(findConfig())
+    //}
     if (document.getElementById("clusterCheckbox").checked) {
         await buildAreaCheckboxes('cluster')
     }
