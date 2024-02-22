@@ -3,7 +3,7 @@
 import logging
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -15,9 +15,9 @@ from data import (
     get_neighbourhood_data,
     get_source_info,
 )
-from model import Dataset, SourceInfo, StatsRequest, StatsResponse, StatsScope, StatsData
+from model import Dataset, StatsRequest, StatsResponse, StatsScope, StatsData
 
-description = """Provides statistical data for charting"""
+description: str = """Provides statistical data for charting"""
 
 logger = logging.getLogger("uvicorn.error")
 try:
@@ -118,6 +118,81 @@ async def refresh_neighbourhood_cache():
     get_neighbourhood_data()
     get_cluster_data.cache_clear()
     get_cluster_data()
+
+
+class LiveSessionManager:
+    # mapping of session IDs to tuples consisting of current config string and a list of websockets in the session.
+    sessions: dict[str, tuple[int, int, list[WebSocket]]] = {}
+
+    @staticmethod
+    async def connect(ws: WebSocket) -> str:
+        """Wait for the given websocket to be accepted, receive an initialization message, and add the websocket to the
+        session indicated in the init message.
+
+        Return: The session ID received."""
+        await ws.accept()
+        data = await ws.receive_json()
+        if "sid" in data:
+            if data["sid"] not in LiveSessionManager.sessions:
+                LiveSessionManager.sessions[data["sid"]] = (data["conf"], data["area"], [ws])
+            else:
+                LiveSessionManager.sessions[data["sid"]][2].append(ws)
+            await ws.send_json(
+                {
+                    "conf": LiveSessionManager.sessions[data["sid"]][0],
+                    "area": LiveSessionManager.sessions[data["sid"]][1],
+                }
+            )
+        else:
+            logger.error(f"Initial websocket connection didn't receive session ID.  Data: {data}")
+        return data["sid"]
+
+    @staticmethod
+    async def publish(sid: str, msg: dict):
+        """Publish updated config values to a session.
+
+        Stores the new configuration, and passes msg to all the clients registered to the given session.
+
+        Args:
+            sid: The ID of the session to publish to.
+            msg: The message to send (in JSON format)."""
+        _, _, clients = LiveSessionManager.sessions[sid]
+        LiveSessionManager.sessions["sid"] = (msg["conf"], msg["area"], clients)
+        for ws in clients:
+            await ws.send_json(msg)
+
+
+@app.websocket("/live")
+async def live(websocket: WebSocket):
+    """Open a websocket to a live session.  When a client connected to a given live session makes an update
+    to the chart, the change will be reflected on other clients connected to the live session.
+
+    Upon connection, the client must join the session by sending a JSON message with the following fields:
+
+        {
+            "sid": The session ID to join, an arbitrary string.
+            "conf": Configuration integer to use when creating the session (ignored if the session already exists).
+            "area": Area config integer to use when creating the session (ignored if the session already exists).
+        }
+
+    Once the client has joined the session, it will receive a message with the session's current config:
+
+        {
+            "conf": Configuration integer
+            "area": Area config integer
+        }
+
+    When a client sends a message with the same schema, all clients in the same session will receive the message.
+    The configuration integers are the bitfields used in the web app, e.g. in its cookie.  The "config" integer
+    holds the general configuration (e.g. which activies are included) and the "area" integer represents the
+    neighbourhoods or clutsters that are included in the chart."""
+    sid = await LiveSessionManager.connect(websocket)
+    while True:
+        try:
+            msg = await websocket.receive_json()
+        except WebSocketDisconnect:
+            break
+        await LiveSessionManager.publish(sid, msg)
 
 
 if __name__ == "__main__":
