@@ -19,6 +19,8 @@ nbhd_source_tab = os.environ.get("NBHD_SOURCE_TAB")
 last_cluster_data_dt = dt.min
 last_nbhd_data_dt = dt.min
 
+logger.info(f"""Neighbourhood data source set to "{nbhd_source_tab}" spreadsheet tab""")
+
 nbhd_cluster_groups = {
     "Abbotsford-Mission": "LM East",
     "Caribou North": "Interior North",
@@ -83,12 +85,16 @@ cluster_groups = {
     "BC41 - Haida Gwaii": "Interior North",
 }
 
-# This object maps tab names in the cluster spreadsheet to column indexes representing the start of the table 2 data.
-# For example, the value at index 46 corresponds to column AU in the spreadsheet, which represents the start of
-# table 2.  So in that table, data[46] is nDG, data[47] is pDG, data[49] is nCC, data[50] is pCC, ..., where
-# nDG is number of devotionals and pDG is participants in devotionals and so on.  In this case data[48] would be
-# friends of the Faith participating in devotionals, which we are not using.
+# This object maps tab names in the cluster spreadsheet to column indexes representing the start of
+# the table 2 data.  For example, the value at index 46 corresponds to column AU in the spreadsheet,
+# which represents the start of table 2.  So in that table, data[46] is nDG, data[47] is pDG,
+# data[49] is nCC, data[50] is pCC, ..., where nDG is number of devotionals and pDG is participants
+# in devotionals and so on.  In this case data[48] would be friends of the Faith participating in
+# devotionals, which we are not using.
 cluster_source_tabs = {
+    "Jan 2025": 45,
+    "Sep 2024": 45,
+    "Apr 2024": 45,  # column AT
     "Oct 2023": 46,  # column AU
     "May 2023": 44,  # column AS
     "Jan 2023": 44,
@@ -116,11 +122,15 @@ def _get_data(sheet_id: str, source_tab: str, range: str = "A1:ZZ") -> list[list
         The data table as a list of rows.
     """
     scopes: list = ["https://www.googleapis.com/auth/spreadsheets"]
-    # keyfile on the host, specified in the .env file, is mapped to /sheets-key.json in the container
+    # the keyfile on the host is mapped to /sheets-key.json in the container via the .env file
     creds = service_account.Credentials.from_service_account_file("/sheets-key.json", scopes=scopes)
     service = build("sheets", "v4", credentials=creds)
     sheet = service.spreadsheets()
-    return sheet.values().get(spreadsheetId=sheet_id, range=f"'{source_tab}'!{range}").execute()["values"]
+    return (
+        sheet.values()
+        .get(spreadsheetId=sheet_id, range=f"'{source_tab}'!{range}")
+        .execute()["values"]
+    )
 
 
 def compute_data_point(row: list, activities: set[Activity], type: StatsType) -> int | None:
@@ -132,8 +142,8 @@ def compute_data_point(row: list, activities: set[Activity], type: StatsType) ->
         activities (set): the activities to sum up into this data point.
         type (StatsType): Indicate whether to sum up numbers of activities or participants.
     Return:
-        The sum of activities or participants for the specified activities.  If the sum is 0 then 0 is returned,
-        but if there are no data points for the given activities then None is returned.
+        The sum of activities or participants for the specified activities.  If the sum is 0 then 0
+        is returned, but if there are no data points for the given activities then None is returned.
     """
     cell_values = []
     if Activity.DG in activities:
@@ -152,7 +162,8 @@ def compute_data_point(row: list, activities: set[Activity], type: StatsType) ->
 
 @cache
 def get_source_info(scope: StatsScope) -> SourceInfo:
-    """Get the title, URL, and last update timestamp of the spreadsheet used as a data source for the given scope.
+    """Get the title, URL, and last update timestamp of the spreadsheet used as a data source for
+    the given scope.
 
     The cache for this function needs to be cleared any time the source data get updated."""
     global last_cluster_data_dt, last_nbhd_data_dt
@@ -171,36 +182,52 @@ def get_source_info(scope: StatsScope) -> SourceInfo:
 def get_colour_from_name(name: str, offset: int = 0) -> tuple[str, str]:
     """Compute a background colour and a border colour from an arbitrary string.
 
-    The colour is derived randomly using the `name` parameter as a seed.  This means that the colour assigned
-    to a given area is random but consistent.  We do this because the default chart.js colour palette is limited.
-    Each RGB channel in the bgColour is assigned a random value between 30 and 200; the borderColour is the same
-    but with +50 added across all 3 channels---in other words, the effective line colours can range from
-    rgb(80, 80, 80) to rgb(250, 250, 250).  An additional offset can be specified, e.g. to generate a line that
-    matches a given area's hue but is brighter or darker than the default.  The PRNG is re-seeded with the current
-    time after the colour is generated.
+    The colour is derived randomly using the `name` parameter as a seed.  This means that the
+    colour assigned to a given area is random but consistent.  We do this because the default
+    chart.js colour palette is limited.  Each RGB channel in the bgColour is assigned a random
+    value between 30 and 200; the borderColour is the same but with +50 added across all 3
+    channels---in other words, the effective line colours can range from rgb(80, 80, 80) to
+    rgb(250, 250, 250).  An additional offset can be specified, e.g. to generate a line that
+    matches a given area's hue but is brighter or darker than the default.  The PRNG is re-seeded
+    with the current time after the colour is generated.
 
     Args:
-        name (str): A cluster or neighbourhood name (or any string) used to seed the generation of a colour.
+        name (str): A cluster or neighbourhood name (or any string) used to seed the generation of
+            a colour.
         offset (int): Apply an exra offset to both background and border colours.
 
     Return:
-        A tuple containing string representations of two colours, (bgColour, borderColour).  These are meant
-        to configure dataset colours returned to the Chart.js app.  The border colour is the line colour.
-        The background colour is the dot/fill colour, and is slightly darker than the border colour.
+        A tuple containing string representations of two colours, (bgColour, borderColour).  These
+        are meant to configure dataset colours returned to the Chart.js app.  The border colour is
+        the line colour. The background colour is the dot/fill colour, and is slightly darker than
+        the border colour.
     """
-    # This is a little silly and might need some tweaking to get good colours.  There's also plugins for chart.js
-    # that expand its default colour palette---might be worth exploring if this doesn't work out.
-    random.seed(name)
-    [r, g, b] = [random.randrange(30, 200) + offset for _ in range(0, 3)]
-    random.seed()
+    # This is a little silly and might need some tweaking to get good colours.  There's also
+    # plugins for chart.js that expand its default colour palette---might be worth exploring if
+    # this doesn't work out.
+    base = None
+    if name == "Harewood":
+        base = (20, 70, 20)
+    elif name == "Tillicum":
+        base = (60, 60, 180)
+    elif name == "Berkey's Corner":
+        base = (200, 100, 100)
+    elif name == "Hillside-Quadra":
+        base = (150, 150, 80)
+    if base:
+        [r, g, b] = base
+    else:
+        random.seed(name)
+        [r, g, b] = [random.randrange(30, 200) + offset for _ in range(0, 3)]
+        random.seed()
     return (f"rgb({r}, {g}, {b})", f"rgb({r+50}, {g+50}, {b+50})")
 
 
 @cache
 def get_cluster_data() -> list[list[str]]:
-    """Retrieve cluster statistical data from the source spreadsheet and reformat it to look more like the output
-    of `get_neighbourhood_data`.  Data rows with no activities are excluded, and empty cells have a value of "".
-    While the spreadsheets indicate dates (presumably corresponding to )
+    """Retrieve cluster statistical data from the source spreadsheet and reformat it to look more
+    like the output of `get_neighbourhood_data`.  Data rows with no activities are excluded,
+    and empty cells have a value of "".
 
     Return:
         The reformatted data table.  Table headers look like this:
@@ -223,22 +250,34 @@ def get_cluster_data() -> list[list[str]]:
         date = dt.strptime(date, "%d %b %Y").isoformat().split("T")[0]
         start_column = cluster_source_tabs[tab_name]
         data = _get_data(cluster_sheet_id, tab_name)
+        # In May 2023 a new column for cluster Milestone was added to the second column of the
+        # table, this offset will adjust the column number when we're looking at the left side of
+        # the table to account for this.
+        milestone_offset = 1 if data[0][1] == "Milestone" else 0
         for row in data[3:]:
-            if len(row) < start_column or not row[1].startswith("BC"):
+            if len(row) < start_column or not row[1 + milestone_offset].startswith("BC"):
                 # this row doesn't hold cluster data
                 continue
-            # some older tables have "R" included in the cluster names to indicate a reservoir cluster--remove it.
-            cluster = row[1].replace('"R"', "").strip()
+            # remove "R" from reservoir cluster names in older worksheets
+            cluster = row[1 + milestone_offset].replace('"R"', "").strip()
             if cluster not in cluster_groups:
-                logger.error(f"Cluster '{cluster}' listed in tab `{tab_name}` was not in the list of known clusters.")
+                logger.error(
+                    f"Cluster '{cluster}' listed in tab `{tab_name}`"
+                    "was not in the list of known clusters."
+                )
                 continue
             cluster_group = cluster_groups[cluster]
-            new_row = [cluster_group, cluster, "", date]  # third entry is nbhd, which we ignore in this view.
+            new_row = [
+                cluster_group,
+                cluster,
+                "",
+                date,
+            ]  # third entry is nbhd, which we ignore in this view.
             for i in range(0, 11, 3):
-                # Assumes the source data is structured like table 2 from the CGP.  Each core activity has three
-                # columns, starting at `start_column` which is specified on a tab-by-tab basis above.  For each core
-                # activity, we extract the first two of its columns (number of the activity and number of participants)
-                # into the new row.
+                # Assumes the source data is structured like table 2 from the CGP.  Each core
+                # activity has three columns, starting at `start_column` which is specified on a
+                # tab-by-tab basis above.  For each core activity, we extract the first two of its
+                # columns (number of the activity and number of participants) into the new row.
                 new_row.append(row[start_column + i])
                 new_row.append(row[start_column + i + 1])
             if "".join(new_row[4:]):
@@ -249,8 +288,9 @@ def get_cluster_data() -> list[list[str]]:
 
 @cache
 def get_neighbourhood_data() -> list[list]:
-    """Retrieve neighbourhood statistical data from the source spreadsheet and reformat it to look more like
-    a cluster growth profile table.  Data rows with no activities are excluded, and empty cells have a value of "".
+    """Retrieve neighbourhood statistical data from the source spreadsheet and reformat it to look
+    more like a cluster growth profile table.  Data rows with no activities are excluded, and
+    empty cells have a value of "".
 
     Return:
         The reformatted data table.  Table headers look like this:
@@ -264,7 +304,9 @@ def get_neighbourhood_data() -> list[list]:
     last_nbhd_data_dt = dt.now(tz=tz.utc)
     get_source_info.cache_clear()
     if nbhd_sheet_id is None or nbhd_source_tab is None:
-        logger.error("NBHD_SHEET_ID and/or NBHD_SOURCE_TAB is empty, both env variables must be set.")
+        logger.error(
+            "NBHD_SHEET_ID and/or NBHD_SOURCE_TAB is empty, both env variables must be set."
+        )
         return []
     data = _get_data(nbhd_sheet_id, nbhd_source_tab)
 
@@ -282,7 +324,10 @@ def get_neighbourhood_data() -> list[list]:
             if date not in dates:
                 dates[date] = []
             dates[date].append(i)
-    dates = {k: dates[k] for k in dates if len(dates[k]) >= 4}  # remove dates that aren't in the four CA subtables
+    dates = {
+        k: dates[k] for k in dates if len(dates[k]) >= 4
+    }  # remove dates that aren't in the four CA subtables
+    logger.warning(f"Dates and columns from cluster table: {dates}")
     new_table = []
     for row in data[4:]:
         if not row[0]:
@@ -292,15 +337,25 @@ def get_neighbourhood_data() -> list[list]:
             cluster = row[0].strip()
             nbhd = row[1].strip()
             if cluster not in nbhd_cluster_groups:
-                logger.error(f"Cluster {cluster} is not in the mapping of clusters to cluster groups.")
+                logger.error(
+                    f"Cluster {cluster} is not in the mapping of clusters to cluster groups."
+                )
                 group = ""
             else:
                 group = nbhd_cluster_groups[cluster]
             new_row = [group, cluster, nbhd]
             new_row.append(date)
             for i in range(0, 4):
-                new_row.append(row[dates[date][i]] if row[dates[date][i]].isdecimal() else "")
-                new_row.append(row[dates[date][i] + 1] if row[dates[date][i] + 1].isdecimal() else "")
+                # for each of DG, CC, JY, SC, and total, append the num activities and participants.
+                try:
+                    new_row.append(row[dates[date][i]] if row[dates[date][i]].isdecimal() else "")
+                    new_row.append(
+                        row[dates[date][i] + 1] if row[dates[date][i] + 1].isdecimal() else ""
+                    )
+                except IndexError:
+                    logger.warning("Error in Cluster table format.")
+                    logger.warning(row)
+                    logger.warning(f"{date} - {i}")
             if "".join(new_row[4:]):
                 # only add the row if there's at least one data point
                 new_table.append(new_row)

@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.13
 
 ARG ADDITIONAL_DEP_GROUPS=
 ARG POETRY=/root/.local/bin/poetry
@@ -6,6 +6,7 @@ ARG POETRY=/root/.local/bin/poetry
 EXPOSE 8000
 
 COPY pyproject.toml poetry.lock /
+COPY app /app
 
 RUN pip install --no-cache-dir --upgrade pip \
     && curl -sSL https://install.python-poetry.org | python3 - \

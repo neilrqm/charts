@@ -4,24 +4,31 @@ version = "0.1.0"
 description = "App for charting various data."
 authors = ["Neil MacMillan"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
-fastapi = "~=0.109"
-google-api-python-client = "~=2.116"
+fastapi = "~=0.115"
+google-api-python-client = "~=2.163"
 google-auth-httplib2 = "~=0.2"
-google-auth-oauthlib = "~=1.2"
-uvicorn = "~=0.27"
-python = ">=3.12,<3.13"
+google-auth-oauthlib = "~=1.2.1"
+uvicorn = "~=0.34"
+python = ">=3.13,<3.14"
 
 [tool.poetry.group.dev.dependencies]
 black = "*"
 flake8 = "*"
+flake8-pyproject = "*"
 pyright = "*"
 types-cachetools = "*"
+pytest = "*"
+pytest-coverage = "*"
 
 [build-system]
 requires = ["poetry-core"]
 
 [tool.black]
 target-version = ["py312"]
-line-length = 120
+line-length = 100
+
+[tool.flake8]
+max-line-length = 100
