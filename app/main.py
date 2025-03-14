@@ -4,9 +4,10 @@ from dataclasses import dataclass
 import logging
 import os
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from data import (
     cluster_groups,
@@ -40,8 +41,19 @@ get_cluster_data()
 
 # Serve Javascript in a static mount
 app.mount("/static", StaticFiles(directory="/app/static"), name="static")
+# templates = Jinja2Templates(directory="app/static")
 
 logger.info("Server setup complete.")
+
+
+# Catch-all route for React routing
+# @app.get("/{path:path}", response_class=HTMLResponse)
+# async def catch_all(request: Request):
+#     """
+#     This catch-all route serves the index.html file for any route that is not matched by an API
+#     endpoint.  It allows the react app to handle the routing.
+#     """
+#     return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/", response_class=HTMLResponse, tags=["Application"])
