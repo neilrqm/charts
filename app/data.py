@@ -253,7 +253,7 @@ def get_cluster_data() -> list[list[str]]:
         # In May 2023 a new column for cluster Milestone was added to the second column of the
         # table, this offset will adjust the column number when we're looking at the left side of
         # the table to account for this.
-        milestone_offset = 1 if data[0][1] == "Milestone" else 0
+        milestone_offset = 1 if data[0][1] == "Milestone" or data[2][1] == "Milestone" else 0
         for row in data[3:]:
             if len(row) < start_column or not row[1 + milestone_offset].startswith("BC"):
                 # this row doesn't hold cluster data
@@ -327,7 +327,6 @@ def get_neighbourhood_data() -> list[list]:
     dates = {
         k: dates[k] for k in dates if len(dates[k]) >= 4
     }  # remove dates that aren't in the four CA subtables
-    logger.warning(f"Dates and columns from cluster table: {dates}")
     new_table = []
     for row in data[4:]:
         if not row[0]:
