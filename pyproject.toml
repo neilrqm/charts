@@ -7,21 +7,21 @@ readme = "README.md"
 package-mode = false
 
 [tool.poetry.dependencies]
-fastapi = "~=0.115"
-google-api-python-client = "~=2.163"
-google-auth-httplib2 = "~=0.2"
-google-auth-oauthlib = "~=1.2.1"
-uvicorn = "~=0.34"
+fastapi = "~0.116.1"
+google-api-python-client = "~2.179.0"
+google-auth-httplib2 = "~0.2.0"
+google-auth-oauthlib = "~1.2.2"
+uvicorn = "~0.35.0"
 python = ">=3.13,<3.14"
 
 [tool.poetry.group.dev.dependencies]
-black = "*"
-flake8 = "*"
-flake8-pyproject = "*"
-pyright = "*"
-types-cachetools = "*"
-pytest = "*"
-pytest-coverage = "*"
+black = "25.1.0"
+flake8 = "7.3.0"
+flake8-pyproject = "1.2.3"
+pyright = "1.1.404"
+types-cachetools = "6.1.0.20250717"
+pytest = "8.4.1"
+pytest-coverage = "0.0"
 
 [build-system]
 requires = ["poetry-core"]
